@@ -30,9 +30,13 @@ def save_config(config):
     with open(config_file, 'w') as f:
         json.dump(config, f, indent=2)
 
-def download_file(url, local_path):
+def download_file(url, local_path, user_agent=None):
     try:
-        response = requests.get(url, stream=True)
+        headers = {}
+        if user_agent:
+            headers['User-Agent'] = user_agent
+        
+        response = requests.get(url, stream=True, headers=headers)
         response.raise_for_status()
         
         full_path = os.path.join(downloads_dir, local_path)
@@ -51,7 +55,7 @@ def periodic_download(config_id):
         config = load_config()
         if config_id in config:
             item = config[config_id]
-            success, message = download_file(item['url'], item['local_path'])
+            success, message = download_file(item['url'], item['local_path'], item.get('user_agent'))
             item['last_download'] = datetime.now().isoformat()
             item['last_status'] = 'success' if success else 'error'
             item['last_message'] = message
@@ -71,6 +75,7 @@ def add_download():
     url = data.get('url')
     local_path = data.get('local_path')
     serve_url = data.get('serve_url')
+    user_agent = data.get('user_agent')
     period = data.get('period', 0)
     
     if not all([url, local_path, serve_url]):
@@ -84,6 +89,7 @@ def add_download():
             'url': url,
             'local_path': local_path,
             'serve_url': serve_url,
+            'user_agent': user_agent,
             'period': period,
             'created': datetime.now().isoformat(),
             'last_download': None,
@@ -129,7 +135,7 @@ def manual_download(config_id):
         return jsonify({'error': 'Configuration not found'}), 404
     
     item = config[config_id]
-    success, message = download_file(item['url'], item['local_path'])
+    success, message = download_file(item['url'], item['local_path'], item.get('user_agent'))
     
     with data_lock:
         config = load_config()

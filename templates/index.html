@@ -49,6 +49,10 @@
                     <input type="text" id="serveUrl" name="serveUrl" required placeholder="myfile.zip">
                 </div>
                 <div class="form-group">
+                    <label for="userAgent">User-Agent (optional):</label>
+                    <input type="text" id="userAgent" name="userAgent" placeholder="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36">
+                </div>
+                <div class="form-group">
                     <label for="period">Period (minutes, 0 for no periodic download):</label>
                     <input type="number" id="period" name="period" min="0" value="0" placeholder="0">
                 </div>
@@ -88,6 +92,7 @@
                                 <div><strong>URL:</strong> ${item.url}</div>
                                 <div><strong>Local Path:</strong> ${item.local_path}</div>
                                 <div><strong>Serve URL:</strong> <a href="/files/${item.serve_url}" class="serve-link" target="_blank">/files/${item.serve_url}</a></div>
+                                <div><strong>User-Agent:</strong> ${item.user_agent || 'Default'}</div>
                                 <div><strong>Period:</strong> ${item.period > 0 ? item.period + ' minutes' : 'Manual only'}</div>
                                 <div><strong>Status:</strong> <span class="status ${statusClass}">${statusText}</span></div>
                                 <div><strong>Last Download:</strong> ${item.last_download ? new Date(item.last_download).toLocaleString() : 'Never'}</div>
@@ -143,6 +148,7 @@
                 url: formData.get('url'),
                 local_path: formData.get('localPath'),
                 serve_url: formData.get('serveUrl'),
+                user_agent: formData.get('userAgent'),
                 period: parseInt(formData.get('period'))
             };
             
