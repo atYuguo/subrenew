@@ -25,6 +25,12 @@
         .download-info { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
         .download-info-item { word-break: break-all; overflow-wrap: break-word; }
         .download-info-item.full-width { grid-column: 1 / -1; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); }
+        .modal-content { background-color: #fefefe; margin: 5% auto; padding: 20px; border: none; border-radius: 8px; width: 80%; max-width: 600px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close:hover, .close:focus { color: black; text-decoration: none; }
+        button.edit { background: #28a745; }
+        button.edit:hover { background: #218838; }
         .url-display {
             background: #f8f9fa;
             padding: 8px;
@@ -95,6 +101,39 @@
         </div>
     </div>
 
+    <!-- Edit Modal -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeEditModal()">&times;</span>
+            <h2>Edit Download</h2>
+            <form id="editForm">
+                <input type="hidden" id="editId" name="editId">
+                <div class="form-group">
+                    <label for="editUrl">URL to Download:</label>
+                    <input type="text" id="editUrl" name="url" required placeholder="https://example.com/file.zip">
+                </div>
+                <div class="form-group">
+                    <label for="editLocalPath">Local Path:</label>
+                    <input type="text" id="editLocalPath" name="localPath" required placeholder="files/file.zip">
+                </div>
+                <div class="form-group">
+                    <label for="editServeUrl">Serve URL Path:</label>
+                    <input type="text" id="editServeUrl" name="serveUrl" required placeholder="myfile.zip">
+                </div>
+                <div class="form-group">
+                    <label for="editUserAgent">User-Agent (optional):</label>
+                    <input type="text" id="editUserAgent" name="userAgent" placeholder="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36">
+                </div>
+                <div class="form-group">
+                    <label for="editPeriod">Period (minutes, 0 for no periodic download):</label>
+                    <input type="number" id="editPeriod" name="period" min="0" value="0" placeholder="0">
+                </div>
+                <button type="submit">Update Download</button>
+                <button type="button" onclick="closeEditModal()">Cancel</button>
+            </form>
+        </div>
+    </div>
+
     <script>
         function loadDownloads() {
             fetch('/api/downloads')
@@ -150,6 +189,7 @@
                             ${item.last_message ? `<div class="download-info-item full-width" style="margin-top: 10px;"><div class="info-label">Message:</div><div class="info-value">${item.last_message}</div></div>` : ''}
                             <div class="actions">
                                 <button onclick="downloadNow('${id}')">Download Now</button>
+                                <button onclick="editDownload('${id}')" class="edit">Edit</button>
                                 <button onclick="deleteDownload('${id}')" class="danger">Delete</button>
                             </div>
                         `;
@@ -189,10 +229,43 @@
                     });
             }
         }
+
+        function editDownload(id) {
+            fetch('/api/downloads')
+                .then(response => response.json())
+                .then(data => {
+                    const item = data[id];
+                    if (item) {
+                        document.getElementById('editId').value = id;
+                        document.getElementById('editUrl').value = item.url;
+                        document.getElementById('editLocalPath').value = item.local_path;
+                        document.getElementById('editServeUrl').value = item.serve_url;
+                        document.getElementById('editUserAgent').value = item.user_agent || '';
+                        document.getElementById('editPeriod').value = item.period || 0;
+                        document.getElementById('editModal').style.display = 'block';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading download for edit:', error);
+                    alert('Error loading download configuration');
+                });
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+
+        // Close modal when clicking outside of it
+        window.onclick = function(event) {
+            const modal = document.getElementById('editModal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
         
         document.getElementById('downloadForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            
+
             const formData = new FormData(e.target);
             const data = {
                 url: formData.get('url'),
@@ -201,7 +274,7 @@
                 user_agent: formData.get('userAgent'),
                 period: parseInt(formData.get('period'))
             };
-            
+
             fetch('/api/downloads', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -220,6 +293,40 @@
             .catch(error => {
                 console.error('Error adding download:', error);
                 alert('Error adding download configuration');
+            });
+        });
+
+        document.getElementById('editForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+            const id = formData.get('editId');
+            const data = {
+                url: formData.get('url'),
+                local_path: formData.get('localPath'),
+                serve_url: formData.get('serveUrl'),
+                user_agent: formData.get('userAgent'),
+                period: parseInt(formData.get('period'))
+            };
+
+            fetch(`/api/downloads/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                } else {
+                    alert(data.message);
+                    closeEditModal();
+                    loadDownloads();
+                }
+            })
+            .catch(error => {
+                console.error('Error updating download:', error);
+                alert('Error updating download configuration');
             });
         });
         

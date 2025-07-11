@@ -110,6 +110,58 @@ def add_download():
     
     return jsonify({'id': config_id, 'message': 'Download configuration added'})
 
+@app.route('/api/downloads/<config_id>', methods=['PUT'])
+def edit_download(config_id):
+    data = request.json
+    url = data.get('url')
+    local_path = data.get('local_path')
+    serve_url = data.get('serve_url')
+    user_agent = data.get('user_agent')
+    period = data.get('period', 0)
+
+    if not all([url, local_path, serve_url]):
+        return jsonify({'error': 'Missing required fields'}), 400
+
+    with data_lock:
+        config = load_config()
+        if config_id not in config:
+            return jsonify({'error': 'Configuration not found'}), 404
+
+        # Get the existing configuration to preserve some fields
+        existing_config = config[config_id]
+
+        # Update the configuration
+        config[config_id] = {
+            'url': url,
+            'local_path': local_path,
+            'serve_url': serve_url,
+            'user_agent': user_agent,
+            'period': period,
+            'created': existing_config.get('created', datetime.now().isoformat()),
+            'last_download': existing_config.get('last_download'),
+            'last_status': existing_config.get('last_status'),
+            'last_message': existing_config.get('last_message')
+        }
+        save_config(config)
+
+    # Remove existing scheduled job
+    try:
+        scheduler.remove_job(f'download_{config_id}')
+    except:
+        pass
+
+    # Schedule new periodic download if period > 0
+    if period > 0:
+        scheduler.add_job(
+            func=periodic_download,
+            trigger=IntervalTrigger(minutes=period),
+            args=[config_id],
+            id=f'download_{config_id}',
+            replace_existing=True
+        )
+
+    return jsonify({'id': config_id, 'message': 'Download configuration updated'})
+
 @app.route('/api/downloads/<config_id>', methods=['DELETE'])
 def delete_download(config_id):
     with data_lock:
@@ -117,15 +169,15 @@ def delete_download(config_id):
         if config_id in config:
             del config[config_id]
             save_config(config)
-            
+
             # Remove scheduled job
             try:
                 scheduler.remove_job(f'download_{config_id}')
             except:
                 pass
-            
+
             return jsonify({'message': 'Download configuration deleted'})
-    
+
     return jsonify({'error': 'Configuration not found'}), 404
 
 @app.route('/api/downloads/<config_id>/download', methods=['POST'])
