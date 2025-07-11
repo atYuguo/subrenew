@@ -1,14 +1,24 @@
 version: '3.8'
 name: subrenew
 
+networks:
+  subrenew_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+
 services:
   subrenew:
     build: .
     ports:
-      - "8123:5000"
+      - "172.20.0.10:8123:5000"
     volumes:
       - ./downloads:/app/downloads
       - ./downloads_config.json:/app/downloads_config.json
     restart: unless-stopped
     environment:
       - FLASK_ENV=production
+    networks:
+      subrenew_network:
+        ipv4_address: 172.20.0.10
